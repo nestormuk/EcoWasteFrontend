@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
-import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { CreditCard, AlertCircle, CheckCircle2, XCircle, Calendar, MessageSquare } from 'lucide-react';
 
 interface User {
   name: string;
@@ -11,14 +9,34 @@ interface User {
   role: string;
 }
 
-interface DashboardResponse {
-  message: string;
-  user: User;
+interface Payment {
+  id: number;
+  amount: number;
+  status: string;
+  date: string;
+}
+
+interface CollectionSchedule {
+  id: number;
+  date: string;
+  status: string;
+  location: string;
 }
 
 interface Complaint {
+  id?: number;
   type: string;
   description: string;
+  status?: string;
+  createdAt?: string;
+}
+
+interface DashboardResponse {
+  message: string;
+  user: User;
+  payments: Payment[];
+  complaints: Complaint[];
+  collectionSchedules: CollectionSchedule[];
 }
 
 export const Dashboard = () => {
@@ -31,51 +49,45 @@ export const Dashboard = () => {
     description: ''
   });
   const [submitStatus, setSubmitStatus] = useState<string>('');
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const token = localStorage.getItem('jwt_token');
         if (!token) {
-          navigate('/signin');
+          window.location.href = '/signin';
           return;
         }
 
-        const response = await axios.get<DashboardResponse>('http://localhost:8080/api/dashboard', {
-          headers: { Authorization: `Bearer ${token}` }
+        const response = await fetch('http://localhost:8080/api/dashboard/user', {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         });
 
-        setUser(response.data.user);
-        setDashboardData(response.data);
-
-        if (response.data.user) {
-          // Fetch role-based dashboard data
-          const roleEndpoint = response.data.user.role === 'ROLE_ADMIN'
-            ? 'http://localhost:8080/api/dashboard/admin'
-            : 'http://localhost:8080/api/dashboard/user';
-
-          const dashboardResponse = await axios.get<DashboardResponse>(roleEndpoint, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-
-          setDashboardData(dashboardResponse.data);
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('jwt_token');
+            window.location.href = '/signin';
+            return;
+          }
+          throw new Error('Failed to load dashboard data');
         }
-      } catch (error: any) {
+
+        const data = await response.json();
+        setUser(data.user);
+        setDashboardData(data);
+      } catch (error) {
         console.error('Dashboard error:', error);
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          localStorage.removeItem('jwt_token');
-          navigate('/signin');
-        } else {
-          setError(error.response?.data?.message || 'Failed to load dashboard data');
-        }
+        setError(error instanceof Error ? error.message : 'Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, [navigate]);
+  }, []);
 
   const handleComplaintSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,9 +95,18 @@ export const Dashboard = () => {
 
     try {
       const token = localStorage.getItem('jwt_token');
-      await axios.post('http://localhost:8080/api/dashboard/complaints', complaint, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch('http://localhost:8080/api/dashboard/complaints', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(complaint)
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit complaint');
+      }
 
       setComplaint({ type: 'Missed Collection', description: '' });
       setSubmitStatus('success');
@@ -93,6 +114,13 @@ export const Dashboard = () => {
       setSubmitStatus('error');
     }
   };
+
+  // Empty State Component
+  const EmptyState = ({ message }: { message: string }) => (
+    <div className="text-center py-6 bg-gray-50 rounded-lg">
+      <p className="text-gray-500">{message}</p>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -152,38 +180,93 @@ export const Dashboard = () => {
           </div>
         )}
 
-        {/* Dashboard Data */}
+        {/* Recent Payments */}
         <div className="bg-white shadow rounded-lg p-6 mb-6">
           <h2 className="text-xl font-semibold flex items-center mb-4">
             <CreditCard className="h-5 w-5 mr-2" />
-            Dashboard Information
+            Recent Payments
           </h2>
-          <p>{dashboardData?.message}</p>
+          {dashboardData?.payments && dashboardData.payments.length > 0 ? (
+            <div className="space-y-4">
+              {dashboardData.payments.map((payment) => (
+                <div key={payment.id} className="flex justify-between items-center border-b pb-2">
+                  <div>
+                    <p className="font-medium">Amount: ${payment.amount}</p>
+                    <p className="text-sm text-gray-500">{new Date(payment.date).toLocaleDateString()}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-sm ${
+                    payment.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {payment.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No payment history available" />
+          )}
         </div>
 
-        {/* Payment Status */}
+        {/* Collection Schedules */}
         <div className="bg-white shadow rounded-lg p-6 mb-6">
           <h2 className="text-xl font-semibold flex items-center mb-4">
-            <CreditCard className="h-5 w-5 mr-2" />
-            Payment Status
+            <Calendar className="h-5 w-5 mr-2" />
+            Collection Schedules
           </h2>
-          <div className="flex items-center">
-            {user.paymentStatus === 'paid' ? (
-              <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" />
-            ) : (
-              <XCircle className="h-5 w-5 text-red-500 mr-2" />
-            )}
-            <span
-              className={`capitalize ${
-                user.paymentStatus === 'paid' ? 'text-green-500' : 'text-red-500'
-              }`}
-            >
-              {user.paymentStatus}
-            </span>
-          </div>
+          {dashboardData?.collectionSchedules && dashboardData.collectionSchedules.length > 0 ? (
+            <div className="space-y-4">
+              {dashboardData.collectionSchedules.map((schedule) => (
+                <div key={schedule.id} className="flex justify-between items-center border-b pb-2">
+                  <div>
+                    <p className="font-medium">{schedule.location}</p>
+                    <p className="text-sm text-gray-500">{new Date(schedule.date).toLocaleDateString()}</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-sm ${
+                    schedule.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {schedule.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No collection schedules available" />
+          )}
         </div>
 
-        {/* Report Complaint */}
+        {/* Previous Complaints */}
+        <div className="bg-white shadow rounded-lg p-6 mb-6">
+          <h2 className="text-xl font-semibold flex items-center mb-4">
+            <MessageSquare className="h-5 w-5 mr-2" />
+            Previous Complaints
+          </h2>
+          {dashboardData?.complaints && dashboardData.complaints.length > 0 ? (
+            <div className="space-y-4">
+              {dashboardData.complaints.map((complaint) => (
+                <div key={complaint.id} className="border-b pb-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <p className="font-medium">{complaint.type}</p>
+                    <span className={`px-2 py-1 rounded-full text-sm ${
+                      complaint.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {complaint.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">{complaint.description}</p>
+                  {complaint.createdAt && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(complaint.createdAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <EmptyState message="No complaints filed yet" />
+          )}
+        </div>
+
+        {/* Report New Complaint */}
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-xl font-semibold mb-4">Report a Complaint</h2>
           {submitStatus === 'success' && (
@@ -250,3 +333,5 @@ export const Dashboard = () => {
     </div>
   );
 };
+
+export default Dashboard;
