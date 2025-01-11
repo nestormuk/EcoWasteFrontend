@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, AlertCircle, CheckCircle2, XCircle, Calendar, MessageSquare } from 'lucide-react';
+import { CreditCard, AlertCircle, CheckCircle2, Calendar, MessageSquare } from 'lucide-react';
 
 interface User {
   name: string;
@@ -25,10 +25,11 @@ interface CollectionSchedule {
 
 interface Complaint {
   id?: number;
-  type: string;
+  title: string;
   description: string;
   status?: string;
-  createdAt?: string;
+  date?: string;
+  users?: any;
 }
 
 interface DashboardResponse {
@@ -45,47 +46,47 @@ export const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [complaint, setComplaint] = useState<Complaint>({
-    type: 'Missed Collection',
+    title: 'Missed Collection',
     description: ''
   });
   const [submitStatus, setSubmitStatus] = useState<string>('');
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const token = localStorage.getItem('jwt_token');
-        if (!token) {
+  const fetchUserData = async () => {
+    try {
+      const token = localStorage.getItem('jwt_token');
+      if (!token) {
+        window.location.href = '/signin';
+        return;
+      }
+
+      const response = await fetch('http://localhost:8080/api/dashboard/user', {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('jwt_token');
           window.location.href = '/signin';
           return;
         }
-
-        const response = await fetch('http://localhost:8080/api/dashboard/user', {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('jwt_token');
-            window.location.href = '/signin';
-            return;
-          }
-          throw new Error('Failed to load dashboard data');
-        }
-
-        const data = await response.json();
-        setUser(data.user);
-        setDashboardData(data);
-      } catch (error) {
-        console.error('Dashboard error:', error);
-        setError(error instanceof Error ? error.message : 'Failed to load dashboard data');
-      } finally {
-        setLoading(false);
+        throw new Error('Failed to load dashboard data');
       }
-    };
 
+      const data = await response.json();
+      setUser(data.user);
+      setDashboardData(data);
+    } catch (error) {
+      console.error('Dashboard error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchUserData();
   }, []);
 
@@ -95,22 +96,34 @@ export const Dashboard = () => {
 
     try {
       const token = localStorage.getItem('jwt_token');
-      const response = await fetch('http://localhost:8080/api/dashboard/complaints', {
+      const response = await fetch('http://localhost:8080/complaint/submit', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(complaint)
+        body: JSON.stringify({
+          title: complaint.title,
+          description: complaint.description,
+          status: 'PENDING'
+        })
       });
 
       if (!response.ok) {
         throw new Error('Failed to submit complaint');
       }
 
-      setComplaint({ type: 'Missed Collection', description: '' });
+      const result = await response.json();
+      console.log('Complaint submitted:', result);
+
+      setComplaint({ title: 'Missed Collection', description: '' });
       setSubmitStatus('success');
+      
+      // Refresh dashboard data to show the new complaint
+      fetchUserData();
+
     } catch (error) {
+      console.error('Submit error:', error);
       setSubmitStatus('error');
     }
   };
@@ -245,7 +258,7 @@ export const Dashboard = () => {
               {dashboardData.complaints.map((complaint) => (
                 <div key={complaint.id} className="border-b pb-2">
                   <div className="flex justify-between items-center mb-2">
-                    <p className="font-medium">{complaint.type}</p>
+                    <p className="font-medium">{complaint.title}</p>
                     <span className={`px-2 py-1 rounded-full text-sm ${
                       complaint.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                     }`}>
@@ -253,9 +266,9 @@ export const Dashboard = () => {
                     </span>
                   </div>
                   <p className="text-sm text-gray-600">{complaint.description}</p>
-                  {complaint.createdAt && (
+                  {complaint.date && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {new Date(complaint.createdAt).toLocaleDateString()}
+                      {new Date(complaint.date).toLocaleDateString()}
                     </p>
                   )}
                 </div>
@@ -291,13 +304,13 @@ export const Dashboard = () => {
           )}
           <form className="space-y-4" onSubmit={handleComplaintSubmit}>
             <div>
-              <label htmlFor="type" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
                 Complaint Type
               </label>
               <select
-                id="type"
-                value={complaint.type}
-                onChange={(e) => setComplaint({ ...complaint, type: e.target.value })}
+                id="title"
+                value={complaint.title}
+                onChange={(e) => setComplaint({ ...complaint, title: e.target.value })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500"
               >
                 <option>Missed Collection</option>

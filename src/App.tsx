@@ -9,6 +9,12 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { Dashboard } from './pages/Dashboard';
 import { OTPVerification } from './components/auth/OTPVerification'; 
 
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { UsersManagement } from './pages/admin/UsersManagement';
+import { PaymentsManagement } from './pages/admin/PaymentsManagements';
+import { ScheduleManagement } from './pages/admin/ScheduleManagement';
+import { ComplaintsManagement } from './pages/admin/ComplaintsManagement';
+
 function App() {
   return (
     <Router>
@@ -31,6 +37,14 @@ function App() {
             <Route path="/otp-verification" element={<OTPVerification />} />
             <Route path="/verification-pending" element={<VerificationPending />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminDashboard />}>
+              <Route path="users" element={<UsersManagement />} />
+              <Route path="payments" element={<PaymentsManagement />} />
+              <Route path="schedule" element={<ScheduleManagement />} />
+              <Route path="complaints" element={<ComplaintsManagement />} />
+            </Route>
           </Routes>
         </main>
       </div>

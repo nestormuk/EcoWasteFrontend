@@ -24,18 +24,27 @@ export const SignInForm = () => {
     setMessage('');
 
     try {
-      const response = await axios.post('http://localhost:8080/api/auth/login', formData);
-      
+      console.log('Submitting login form:', formData); // Debugging
+
+      const response = await axios.post('http://localhost:8080/api/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Response received:', response.data); // Debugging
+
       if (response.data.token) {
         // Store token and user data
         localStorage.setItem('jwt_token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
-        
+
         // Set authorization header for future requests
         axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
-        
+
         // Check user role and redirect accordingly
         const userRole = response.data.user.role;
+        console.log('User role:', userRole); // Debugging
         if (userRole === 'ADMIN') {
           navigate('/admin/dashboard');
         } else {
@@ -43,7 +52,9 @@ export const SignInForm = () => {
         }
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || 'Login failed. Please try again.';
+      console.error('Login error:', error.response || error.message); // Debugging
+
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Login failed. Please try again.';
       setMessage(errorMessage);
     } finally {
       setIsLoading(false);
@@ -91,8 +102,8 @@ export const SignInForm = () => {
         )}
 
         <div className="flex items-center justify-between">
-          <Link 
-            to="/forgot-password" 
+          <Link
+            to="/forgot-password"
             className="text-sm text-green-600 hover:text-green-500"
           >
             Forgot your password?
