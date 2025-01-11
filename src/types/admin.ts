@@ -1,41 +1,38 @@
 export type AccountStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 export type UserRole = 'ADMIN' | 'USER';
-export type PaymentStatus = 'PAID' | 'UNPAID';
+export type PaymentStatus = 'Paid' | 'Unpaid';
 export type ComplaintStatus = 'PENDING' | 'RESOLVED' | 'IN_PROGRESS';
 
 export interface AdminUser {
-  id: string;
-  fullName: string;
+  id: string; 
+  name: string; 
   email: string;
   location: string;
-  accountStatus: AccountStatus;
-  role: UserRole;
-  createdAt: string;
+  accountStatus: AccountStatus; 
+  role: UserRole; 
+  verificationCode: number;
+  verificationExp: string; 
+  complaints: Complaint[]; 
+  payments: Payment[]; 
 }
 
 export interface Payment {
-  id: string;
-  userId: string;
-  userEmail: string;
+  id: string; 
   amount: number;
-  date: string;
-  status: PaymentStatus;
+  date: string; 
+  status: PaymentStatus; 
 }
 
 export interface Complaint {
-  id: string;
-  userId: string;
-  type: string;
+  id: string; 
+  title: string;
   description: string;
-  status: ComplaintStatus;
-  createdAt: string;
+  status: ComplaintStatus; 
+  date: string; 
+  userId: string; 
 }
 
 export interface CollectionSchedule {
-  id: string;
-  location: string;
-  date: string;
-  time: string;
-  type: string;
-  notes?: string;
+  id: string; 
+  scheduleDate: string; 
 }

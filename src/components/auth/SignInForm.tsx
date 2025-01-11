@@ -46,7 +46,7 @@ export const SignInForm = () => {
         const userRole = response.data.user.role;
         console.log('User role:', userRole); // Debugging
         if (userRole === 'ADMIN') {
-          navigate('/admin/dashboard');
+          navigate('/admin');
         } else {
           navigate('/dashboard');
         }
